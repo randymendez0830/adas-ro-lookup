@@ -10,19 +10,21 @@ export default async function handler(req, res) {
   const rows = data.values || [];
 
   const search = String(ro_number).trim();
-  const row = rows.find(r => String(r[2] || "").trim() === search);
+
+  // Find by string comparison (works even if Google Sheets stored it as number)
+  const row = rows.find(r => String(r[2]).trim() === search);
 
   if (!row) return res.json({ found: false });
 
   return res.json({
     found: true,
     ro_number: row[2],
-    shop: row[1],
-    vehicle_year: row[4],
-    vehicle_make: row[5],
-    vehicle_model: row[6],
-    system: row[7],
-    status: row[8],
+    shop: row[1] || "N/A",
+    vehicle_year: row[4] || "N/A",
+    vehicle_make: row[5] || "N/A",
+    vehicle_model: row[6] || "N/A",
+    system: row[7] || "N/A",
+    status: row[8] || "N/A",
     notes: row[10] || "N/A"
   });
 }
