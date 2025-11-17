@@ -9,9 +9,8 @@ export default async function handler(req, res) {
   const data = await response.json();
   const rows = data.values || [];
 
-  // Force string comparison
-  const cleanRo = String(ro_number).trim();
-  const row = rows.find(r => String(r[2]).trim() === cleanRo);
+  const search = String(ro_number).trim();
+  const row = rows.find(r => String(r[2] || "").trim() === search);
 
   if (!row) return res.json({ found: false });
 
