@@ -1,30 +1,48 @@
+import { google } from "googleapis";
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+  if (req.method !== "POST") return res.status(405).end();
 
-  const { caller_number } = req.body;
-  const SPREADSHEET_ID = "1hsPuwYq0TqjarCtUr2VvR_L9E4zqsYMRund6EGfl5jQ";
+  try {
+    const { caller_number } = req.body;
+    if (!caller_number) {
+      return res.json({ authorized: false });
+    }
 
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Whitelist!A2:C`;
-  const response = await fetch(url);
-  const data = await response.json();
-  const rows = data.values || [];
+    const auth = new google.auth.JWT(
+      process.env.GOOGLE_CLIENT_EMAIL,
+      null,
+      process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    );
 
-  // Normalize incoming number — strip everything except digits
-  const incomingDigits = caller_number.replace(/[^\d]/g, '');
+    const sheets = google.sheets({ version: "v4", auth });
 
-  // Search sheet — compare only digits
-  const match = rows.find(row => {
-    const sheetDigits = String(row[0] || "").replace(/[^\d]/g, '');
-    return sheetDigits === incomingDigits;
-  });
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.GOOGLE_SHEET_ID,
+      range: "Whitelist!A2:C",
+    });
 
-  if (!match) {
+    const rows = result.data.values || [];
+
+    const incomingDigits = caller_number.replace(/[^\d]/g, "");
+
+    const match = rows.find((row) => {
+      const sheetDigits = String(row[0] || "").replace(/[^\d]/g, "");
+      return sheetDigits === incomingDigits;
+    });
+
+    if (!match) {
+      return res.json({ authorized: false });
+    }
+
+    return res.json({
+      authorized: true,
+      type: (match[1] || "").toLowerCase() === "tech" ? "tech" : "shop",
+      name: match[2] || "Unknown",
+    });
+  } catch (err) {
+    console.error("Whitelist error:", err);
     return res.json({ authorized: false });
   }
-
-  return res.json({
-    authorized: true,
-    type: (match[1] || "").toLowerCase() === "tech" ? "tech" : "shop",
-    name: match[2] || "Unknown"
-  });
 }
