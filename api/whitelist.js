@@ -15,7 +15,6 @@ export default async function handler(req, res) {
   if (cleanCaller.length === 10) normalizedCaller = '+1' + cleanCaller;
   else if (cleanCaller.length === 11 && cleanCaller.startsWith('1')) normalizedCaller = '+' + cleanCaller;
 
-  // Search for match
   const match = rows.find(row => String(row[0]).trim() === normalizedCaller);
   if (!match) {
     return res.json({ authorized: false, type: 'unknown' });
