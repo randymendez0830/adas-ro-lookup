@@ -9,21 +9,22 @@ export default async function handler(req, res) {
   const data = await response.json();
   const rows = data.values || [];
 
-  // Normalize caller number
-  const cleanCaller = caller_number.replace(/[^\d+]/g, '');
-  let normalizedCaller = cleanCaller;
-  if (cleanCaller.length === 10) normalizedCaller = '+1' + cleanCaller;
-  else if (cleanCaller.length === 11 && cleanCaller.startsWith('1')) normalizedCaller = '+' + cleanCaller;
+  // Normalize incoming number — strip everything except digits
+  const incomingDigits = caller_number.replace(/[^\d]/g, '');
 
-  // Search for match
-  const match = rows.find(row => String(row[0]).trim() === normalizedCaller);
+  // Search sheet — compare only digits
+  const match = rows.find(row => {
+    const sheetDigits = String(row[0] || "").replace(/[^\d]/g, '');
+    return sheetDigits === incomingDigits;
+  });
+
   if (!match) {
-    return res.json({ authorized: false, type: 'unknown' });
+    return res.json({ authorized: false });
   }
 
   return res.json({
     authorized: true,
-    type: match[1]?.toLowerCase() || "shop",
+    type: (match[1] || "").toLowerCase() === "tech" ? "tech" : "shop",
     name: match[2] || "Unknown"
   });
 }
