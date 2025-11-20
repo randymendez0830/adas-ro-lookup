@@ -1,48 +1,48 @@
 import { google } from "googleapis";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
-
   try {
-    const { caller_number } = req.body;
-    if (!caller_number) {
-      return res.json({ authorized: false });
-    }
+    const body = req.body;
 
-    const auth = new google.auth.JWT(
-      process.env.GOOGLE_CLIENT_EMAIL,
-      null,
-      process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-      ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-    );
+    // Load service account from env
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"]
+    });
 
     const sheets = google.sheets({ version: "v4", auth });
 
-    const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.GOOGLE_SHEET_ID,
-      range: "Whitelist!A2:C",
+    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+    const RANGE = "Schedule!A2:K";
+
+    const row = [
+      body.date,
+      body.shop,
+      body.ro_number,
+      body.vin || "",
+      body.vehicle_year,
+      body.vehicle_make,
+      body.vehicle_model,
+      body.system,
+      body.status,
+      body.tech,
+      body.notes || ""
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: RANGE,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [row],
+      },
     });
 
-    const rows = result.data.values || [];
-
-    const incomingDigits = caller_number.replace(/[^\d]/g, "");
-
-    const match = rows.find((row) => {
-      const sheetDigits = String(row[0] || "").replace(/[^\d]/g, "");
-      return sheetDigits === incomingDigits;
-    });
-
-    if (!match) {
-      return res.json({ authorized: false });
-    }
-
-    return res.json({
-      authorized: true,
-      type: (match[1] || "").toLowerCase() === "tech" ? "tech" : "shop",
-      name: match[2] || "Unknown",
-    });
+    return res.status(200).json({ success: true });
   } catch (err) {
-    console.error("Whitelist error:", err);
-    return res.json({ authorized: false });
+    console.error(err);
+    return res.status(500).json({ error: err.toString() });
   }
 }
